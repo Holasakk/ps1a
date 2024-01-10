@@ -1,0 +1,268 @@
+Video 2 - https://owncloud.vspj.cz/index.php/s/azXXjMNTRhYJ25v
+
+Základní příkazy v Terminálu
+pwd – aktuální adresář
+ls – výpis složky
+ls -a – výpis složky se skrytými soubory
+dnf search [NAZEV_BALICKU] – najde všemožné balíčky k instalaci
+ifconfig – seznam síťových adaptérů
+netstat -antup (all, numeric, TCP, UDP, program) – aktivní spojení a porty
+rpm -ql [NÁZEV_BAÍČKU] – vypíše obsah balíčku
+
+Instalace MC (video 2 – 25:00)
+V konzoli napíši „mc“
+Vše odsouhlasit
+Zadat heslo
+
+Statické parametry síťové karty pomocí MC (video 2 – 1:21:22)
+mc -> cd /etc/sysconfig/network-scripts
+ifcfg-eth0 -> edit
+BOOTPROTO=static
+IPV6INIT=no
+IPV6_AUTOCONF=no
+IPV6_DEFROUTE=no
+IPV6_FAILURE_FATAL=no
+Na konec napsat:
+IPADDR=192.168.60.XXX (XXX = 200 + číslo počítače)
+PREFIX=24 (maska), lze i NETMASK=255.255.255.0
+GATEWAY=192.168.60.254 (poslední adresa z rozsahu)
+DNS1=192.168.50.165 (DNS server 1)
+DNS2=8.8.8.8 (DNS server 2)
+Uložit
+V terminálu -> ifup eth0 – aktualizuje parametry rozhrání
+
+Linux jako router s NATem (video 2 – 1:36:00)
+Linux
+Na Linux mašině v Hyper-V -> přidám síťovou kartu a switch nastavím na „internal“
+mc -> cd /etc/sysconfig/network-scripts (v obou oknech)
+Najedu na soubor ifcfg-eth0
+Stisknu „F5“
+Pole „na“: ifcfg-eth1
+ifcfg-eth1 -> edit
+NAME=eth1
+UUID -> #UUID (zakomentovat)
+DEVICE=eth1
+IPADDR=10.0.0.1
+PREFIX=8
+GATEWAY -> #GATEWAY (na druhé síťovce -> zakomentovat)
+Všechna DNS -> #DNS (na druhé síťovce -> zakomentovat)
+Uložit
+V terminálu -> ifup eth1 – aktualizuje parametry rozhrání
+Windows
+Nastavení adaptéru
+IP address: 10.0.0.9 (nebo jiná z rozsahu /8)
+Subnet mask 255.0.0.0 (/8)
+Default gateway: 10.0.0.1 (adresa interní síťovky eth1 z Linuxu)
+DNS: 8.8.8.8 (Googlovská)
+V terminálu -> ifup eth0 – aktualizuje parametry rozhrání
+Linux
+mc -> cd /etc
+sysctl.conf -> edit
+net.ipv4.ip_forward = 1 (povolení forwardování na Linuxu)
+Z Windows ještě nepingneme ven do Internetu -> Linux na 192.168.60.XXX dostane paket s cílovou adresou našeho Windows, ale neví kam to poslat (musíme zapnout NAT)
+Zapnutí NAT -> zapíná se ve firewallu
+Ze softwaru nainstalovat firewall
+Nastavení: Trvalá
+Pro eth0 -> public
+Maškarádování -> Povolit maškarádu v zóně
+Možnosti -> Znovu načíst firewall
+
+
+
+
+SSH a SElinux – vzdálená kontrola počítače (Putty) (video 2 – 2:17:38)
+mc -> cd /etc/ssh
+sshd_config -> edit
+odkomentovat port (a eventuelně ho změnit / změnit další nastavení)
+PermitRootLogin -> přístup přímo na root účet přes Putty (yes/no)
+uložit a zpět do terminálu
+sudo firewall-cmd --add-port [CISLO_PORTU]/tcp --permanent
+(pro smazání místo add -> remove)
+firewall-cmd --reload
+semanage port -a -t ssh_port_t -p tcp [CISLO_PORTU]
+(pro smazání místo -a -> --delete)
+systemctl restart sshd.service
+systemctl status sshd.service
+netstat -antpu
+
+Linux jako DHCP server (video 3 – 18:20)
+Linux
+dnf search dhcp -> vyhledání balíčků dhcp
+dnf install dhcp-server -> instalace DHCP serveru
+vše odsouhlasit
+mc -> cd /etc/dhcp
+Do tohoto adresáře vložíme konfigurák z moodle
+wget https://alpha.kts.vspj.cz/~apribyl/dhcpd.txt
+mv dhcpd.txt dhcpd.conf -> přejmenování souboru
+obsah souboru:
+
+
+
+systemctl start dhcpd -> nastartování DHCP serveru
+firewall -> povolení DHCP
+Nastavení: Trvalá
+Pro eth1 -> public
+V seznamu vyberu dhcp
+Možnosti -> Znovu načíst firewall
+Windows
+Nastavení síťovky
+Přepnout vše na automatickou konfiguraci
+Linux
+Seznam obsloužených PC (pokud bude třeba)
+cd /var/lib/dhcpd -> dhcpd.leases
+Statická alokace 
+mc -> cd /etc/dhcp
+DOVNITŘ konkrétního subnetu:
+
+
+Linux jako DNS (video 3 – 41:00)
+Bude rekurzivní (nikam dotaz nepřeposílá, ale sám zjistí od kořenových serverů)
+Bude primární autoritativní pro doménu (komukoliv bude na dotaz na danou doménu odpovídat)
+dnf install bind
+vše odsouhlasit
+mc -> cd /etc
+named.conf -> edit
+listen-on port 53 { any; };
+//listen-on-v6 port 53 { ::1; }; -> nepoužíváme, zakomentujeme
+allow-query { any; };
+recursion yes;
+allow-recursion {localhost; 10.0.0.0/8;}; -> rekurzi povolujeme jenom z naší sítě, jinak by hrozilo nebezpečí DNS zesilujícího útoku, v příkazu jsou všude středníky, žádné dvojtečky
+systemctl start named
+firewall -> povolení DNS
+Nastavení: Trvalá
+public
+V seznamu vyberu dns
+Možnosti -> Znovu načíst firewall
+
+Přenastavení našeho DHCP na naší DNS
+mc -> cd /etc/dhcp
+dhcpd.conf -> edit
+option domain-name-servers 10.0.0.1;
+Uložit
+Zónový soubor pro danou doménu
+mc -> cd /etc
+named.conf -> edit
+zkopírujeme zone “.” IN { … }
+vložíme pod to a přepíšeme:
+zone „myvspj.cz“ IN {
+	type master;
+	file „myvspj.cz“;
+}
+uložíme
+cd /var/named
+wget https://alpha.kts.vspj.cz/~apribyl/myvspj.cz.txt
+mv myvspj.cz.txt myvspj.cz -> přejmenování souboru
+Pokud na Windows nejde DNS zkusit ruční konfiguraci DNS (10.0.0.1) -> funguje? Pak je nutné restartovat dhcpd na Linuxu a obnovit nastavení síťovky na Windows.
+Mailový klient pro doménu (Postfix a IMAP) (video 3 – 1:36:40)
+Postfix
+dnf install postfix
+vše odsouhlasit
+mc -> cd /etc/postfix
+main.cf -> edit
+myhostname = mail.myvspj.cz (řádek 94)
+mydomain = myvspj.cz (řádek 102)
+myorigin = $mydomain (odkomentovat, řádek 118)
+inet_interfaces = all (odkomentovat, řádek 132)
+inet_interfaces = localhost (ZAkomentovat, řádek 135)
+inet_protocols = ipv4 (řádek 138)
+mydestination (ZAkomentovat, řádek 183)
+mydestination (odkomentovat, řádek 185 a 186)
+mynetworks = 10.0.0.0/8, 127.0.0.0/8 (řádek 283)
+home_mailbox = Maildir/ (odkomentovat, řádek 438)
+
+
+
+Aliasy
+mc -> cd /etc
+aliases -> edit
+Poslední řádek odkomentovat a přepsat (root: eit) -> rootovská pošta se bude přesměrovávat na účet eit
+Uložit
+Musíme soubor transformovat do tvaru, který čte postfix
+postalias aliases -> vytvoří se soubor aliases.db, ten používá Postfix
+systemctl start postfix
+Test mailu z příkazové řádky
+dnf install mailx
+vše odsouhlasit
+echo „[TEXT_MAILU]“ |mail -s „[PŘEDMĚT_MAILU]“ [UCET_PRIJEMCE] -> poslání mailu
+echo „Toto je text mailu“ |mail -s „Toto je předmět mailu“ eit
+mc -> cd /home/eit/Maildir -> zobrazení emailové schránky
+IMAP
+dnf install dovecot
+odsouhlasit vše
+mc -> cd /etc/dovecot
+dovecot.conf -> edit
+protocols = imap pop3 lmtp submission (odkomentujeme, řádek 24)
+listen = * (řádek 30)
+login_greeting = [POZDRAV_PŘI_PŘIHLÁŠENÍ] (změnit podle potřeby, řádek 42)
+login_trusted_networks = 10.0.0.0/8 127.0.0.0/8 (řádek 48)
+systemctl start dovecot
+firewall -> povolení Dovecot
+Nastavení: Trvalá
+public
+V seznamu vyberu imap, imaps, pop3, pop3s, smtp, smtp-submission
+Možnosti -> Znovu načíst firewall
+Windows
+Nainstalujeme Thunderbird
+Jméno: libovolné
+E-mailová adresa: eit@myvspj.cz
+Heslo: heslo účtu eit
+Schválíme bezpečnostní výjimku
+Odesílání pošty -> změna nastavení
+Pravým tlačítkem na účet
+Nastavení
+Server odchozí pošty (SMTP)
+Upravit
+Port 25
+Zabezpečení spojení: Žádné
+Způsob autentizace: Bez autentizace
+
+Server Apache (video 3 – 2:23:08)
+dnf install httpd
+odsouhlasit vše
+mc -> cd /etc/httpd/conf
+httpd.conf -> edit (pokud bude potřeba editovat, ve výchozím stavu není potřeba)
+systemctl start httpd
+firewall -> povolení Apache
+Nastavení: Trvalá
+public
+V seznamu vyberu http
+Možnosti -> Znovu načíst firewall
+Vlastní výchozí stránka
+mc -> cd /var/www/html
+touch index.html -> něco tam napsat
+Přidání podpory PHP
+dnf install php
+vše odsouhlasit
+mc -> cd /var/www/html
+touch index.php -> napsat tam kód php, třeba (<?php phpinfo(); ?>)
+uložit
+Musíme restartovat server Apache, aby zjistil, že podporuje PHP -> systemctl restart httpd
+A smažeme index.html, protože ten má přednost před index.php
+Uživatelské weby
+mc -> cd /etc/httpd/conf.d
+userdir.conf -> edit
+UserDir disabled (zakomentujeme, řádek 17)
+UserDir public_html (odkomentujeme, řádek 24)
+Uložit
+systemctl restart httpd
+mc -> „F7“ -> „public_html“ -> Vytvořím si v domovském účtu adresář s názvem public_html
+cd /public_html
+touch index.html
+uložit
+Adresa dané uživatelské webovky je 10.0.0.1/ ~eit/ -> nefunguje, kvůli špatně nastaveným oprávněním, takže:
+mc -> cd /home
+na složku „eit“
+soubor -> změna práv
+execute/search by others
+Nastaveno, pořád se ale nic neděje. Za to může SELinux. Vyskočí bublina SELinux varování: (možná, pokud ne, tak prostě postupuj dále)
+Otevřu ji pomocí „Ukázat“
+Zobrazím tlačítkem „Detaily“
+Najdu řádek setsebool -P httpd_enable_homedirs 1 a zkopíruji ho
+V terminálu příkaz spustím
+Virtuální weby (podweby web1.myvspj.cz, atd…)
+Podle cvičení 13 na moodle https://moodle.vspj.cz/mod/page/view.php?id=110684
+
+
+
+
+

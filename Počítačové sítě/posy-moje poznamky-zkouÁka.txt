@@ -1,0 +1,135 @@
+Stáhnutí MC
+Napsat do terminálu „su“ a přepnout se na roota
+Napsat do terminálu „mc“ a vše odsouhlasit
+Konfigurace síťových karet v linuxu
+V mc -> cd /etc/sysconfig/network-scripts
+F4 otevřít ifcfg-eth0
+V tomto souboru přepíšu hodnoty na tyto:
+BOOTPROTO=static
+IPV6INIT=no
+IPV6_AUTOCONF=no
+IPV6_DEFROUTE=no
+IPV6_FAILURE_FATAL=no
+Na konec dokumentu dopsat:
+IPADDR=192.168.60.XXX (XXX = 200 + číslo počítače)
+NETMASK=255.255.255.0 (maska)
+GATEWAY=192.168.60.254 (poslední adresa z rozsahu)
+DNS1=192.168.50.165 (DNS server 1)
+DNS2=8.8.8.8 (DNS server 2)
+!!!ÚDAJE NAPSAT PODLE ZADÁNÍ!!!¨
+ Uložit a zavřít mc
+Do terminálu napsat „ifup eth0“
+Pro zajímavost zkusím „ping 8.8.8.8“ zda to vidí do internetu
+Přidání další síťové karty (1:35:54)
+Kliknu na „file“ -> settings -> v levo nahoře kliknu na „add hardware“ a přidám „network adapter“ -> rozkliknu ho v levo a v políčku „virtual switch“ vyberu síť „internal“ klinu na „apply a ok“
+Otevřu mc cd /etc/sysconfig/network-scripts  (1:27:29)
+Kliknu na soubor ifcfg-eth0 aby se označil a klinu na F5-kopírovat
+Cestu kterou mi to nabídlo smažu a napíšu tam místo toho ifcfg-eth1
+Zmáčknu F4 a přepíšu hodnoty aby to odpovídalo
+NAME=eth1
+UUID -> #UUID (zakomentovat)
+DEVICE=eth1
+IPADDR=10.0.0.1
+PREFIX=8
+GATEWAY -> #GATEWAY (na druhé síťovce -> zakomentovat)
+Všechna DNS -> #DNS (na druhé síťovce -> zakomentovat)
+!!!ÚDAJE NAPSAT PODLE ZADÁNÍ!!!¨
+Uložit
+Napsat do terminálu ifup eth1
+
+
+
+
+Nastavení síťové karty ve windows (1:49:15)
+Kliknu na nastavení síťového adaptéru
+Otevřu nastavení IPV4 a napíšu tam údaje ze zadání (pozor nevím jak to bude v zadání ale možná se bude ve windows napsat stejná gateway jakoje v eth0 nebo 1 spíše 1 a zkusit jestli na sebe vidí)
+Zkusím z Linuxu pingnout na IP windowsu a z windows pingnout na IP linuxu eth1 i eth0 (mělo by to jít)
+Nastavení routování z Linux
+V mc otevřu F4 etc-> soubor „sysctl.conf
+Sjedu uplně dolu a na nový řádek napíšu „net.ipv4.ip_forward = 1“ (povolení forwardování na Linuxu)
+Uložim
+Stáhnutí Firewall (2:05:19)
+V GUI napíšu do vyhledávání „firawall“ a stáhnu
+Spustím firewall
+Přepnu na „trvalá“
+Vyberu public a nahoře najdu záložku „maškarádování“ a kliknu na „povolit maškarádování“
+A kliknu na znovu načíst firewall
+Pokud je vše dobře nastavené mělo by jít z windows pingnout na seznam „ping seznam.cz“
+TOTO CELÉ BYL ROATER S NATEM
+Moodle cvičení 7
+Konfigurace SSH (2:33:19)
+Spustím mc a cesta etc/ssh -> a pustím sshd_config (pozor ne pouze ssh_config)
+V soboru odkomentuji a přepíšu „port 22“ na port 32
+Pod „port 32“ napíšu „AllowUsers eit“ 
+Dále najdu v souboru „PermitRootLogin“ a přepíšu ho na „no“
+Dále najdu v souboru „AllowTcpForwarding“ a přepíšu je na „yes“
+Dále si nejsem jistý jak postupovat dále tak zkus nejít řešení v ostatních poznámkách
+Poté se ve firewallu musí port 32 povolit a SElinuxu
+https://computingforgeeks.com/change-ssh-port-centos-rhel-fedora-with-selinux/
+S poznámkami to zkusit mělo by to jít
+
+
+
+
+
+
+
+Stáhnutí a nastavení DHCP (video 3 19:20)
+Do terminálu napíšu „dnf search dhcp“ -> vyhledá balíčky dhcp serveru
+Poté do terminálu napíšu „dnf install dhcp-server“ stáhnu a vše potvrdím
+Pustím mc a v etc/dhcp ->dhcpd.conf a pustím F4
+Budu muset stáhnout příkazem“ wget https://alpha.kts.vspj.cz/~apribyl/dhcpd.txt“ soubor který má v sobě parametry (ale dělej to podle videa 3 24:17 a moodle)
+authoritative; default-lease-time 86400; max-lease-time 259200; option subnet-mask 255.0.0.0; option domain-name-servers 192.168.50.165, 192.168.50.166; (zde změnit pouze dns servery co mám v eth0) option domain-name "vspj.cz"  (doménu zvolit tu co mám v zadání)
+                                                                                                                                                                                                                                     
+subnet 10.0.0.0 netmask 255.0.0.0 { IP aresa, Maska   range 10.0.0.100 10.0.0.200;   option broadcast-address 10.255.255.255;   option routers 10.0.0.1; (IP z eth1-- zkusit všechny údaje z eth1) popřípadě i v subnet,  Brána
+}
+Poté co budu mít vytvořený soubor a předělaný na conf podle videa ho otevřu F4 a přepíšu parametry
+ Službu nastartuji příkazem „systemctl start dhcpd“ (pokud to proběhně dobře tak by měl být správně i konfigurák)
+Zkusím „systemctl status dhcpd“
+Napíšu „systém enable dhcpd“
+Zapnu firewall (30:00)
+Přepnu na „trvalá“ vyberu public a zapnu „dhcp“ a reloadnu firewall
+Přepnu se do Windows, do nastavení síťovky  a vše přepnu na automatiku
+Zkusím „ipconfig“ zda uvidím změny a poté zkusím pingnout na seznam.cz
+Dále by to mělo být vše
+
+
+
+
+
+
+
+
+
+
+
+DNS Server (moodle 9 – 43:50)
+Napíšu „dnf install bind“ stáhnu a vše odsouhlasím
+Otevřu mc a v etc -> named.conf a otevřu F4
+Na listen-on port 53 dopíšu do zavorky místo ip adresy „any“ příkaz bude vypadat takto: listen-on port 53 { any; }; (pozor na středníky)
+listen-on-v6 port zakomentujeme, bude to vypadat takto //listen-on-v6 port 53 { ::1; };
+dále najdu allow-query a údaj v závorce přepíšu na „any“ příkaz bude vypadat takto:       allow-query { any; };
+Dále najdu příkaz recursion yes; nechám ho zapnutý a pod něj přidám příkaz                      allow-recursion {localhost; 10.0.0.0/8;}; (opět nevím jak s tímto údajem tak kdyžtak zkusit ho tam nedát a nebo nějaké jiné adresy či něco najít na internetu nejspíše eth1)
+Uložim
+A do terminálu napíšu „systemctl start named“
+Podívám se zda služba běží „systemctl status named“
+A chci aby služba byla zapnutá tak „systemctl enable named“
+Zapnu firewall ->trvalá->public->dns->znovu načíst firewall
+ Spustím mc etc/dhcp->dhcpd.conf (1:05:56)
+Napíšu „systemctl restart dhcpd“
+Jdu do windowsu a napíšu příkaz „ipconfig /renew“
+Jdu do Linuxu a pouštím mc a etc->named.conf pustím F4 (1:22:15)
+Zkopíruju zone “.” IN { … } vložím to znovu pod to a přepíšu hodnoty podle zadání doména a název… například
+ zone „myvspj.cz“ IN {
+type master;
+file „myvspj.cz“;
+uložim
+do terminálu napíšu cd /var/named (nebo to naklikám v mc) zavřu
+wget https://alpha.kts.vspj.cz/~apribyl/myvspj.cz.txt
+mv myvspj.cz.txt myvspj.cz (přejmenuju podle zadání)
+musím tam přepsat domény podle zadání
+napíšu příkaz „systemctl restart named“
+
+
+
+SMTP (1:36:15)
